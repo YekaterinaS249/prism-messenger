@@ -1220,7 +1220,7 @@
     if (raw.startsWith('/poll ')) {
       const parts = raw.slice(6).split('|').map(s => s.trim()).filter(Boolean);
       if (parts.length < 3) {
-        alert('Формат: /poll Вопрос? | Вариант 1 | Вариант 2');
+        showToast('Формат: /poll Вопрос? | Вариант 1 | Вариант 2');
         return true;
       }
       const [question, ...options] = parts;
@@ -1854,7 +1854,7 @@
         state.stompClient.subscribe('/user/queue/admin', (frame) => {
           const payload = JSON.parse(frame.body);
           if (payload.action === 'FORCE_LOGOUT') {
-            alert('Администратор завершил вашу сессию.');
+            showToast('Администратор завершил вашу сессию.');
             logoutForced();
           }
         });
@@ -2053,7 +2053,7 @@
         mediaName: data.name
       });
     } catch (err) {
-      alert(err.message);
+      showToast(err.message);
     } finally {
       progress.classList.add('hidden');
       e.target.value = '';
@@ -2103,7 +2103,7 @@
   async function startRecording() {
     if (!state.activeChat && !state.activeGroup) return;
     if (!navigator.mediaDevices || !window.MediaRecorder) {
-      alert('Запись голоса не поддерживается этим браузером');
+      showToast('Запись голоса не поддерживается этим браузером');
       return;
     }
     try {
@@ -2124,7 +2124,7 @@
       document.querySelector('.message-form').classList.add('hidden');
       el('voice-recorder').classList.remove('hidden');
     } catch (err) {
-      alert('Нет доступа к микрофону: ' + err.message);
+      showToast('Нет доступа к микрофону: ' + err.message);
     }
   }
 
@@ -2154,7 +2154,7 @@
         if (!res.ok) throw new Error(data.error || 'Ошибка загрузки');
         sendChat({ content: '', type: 'VOICE', mediaUrl: data.url, mediaName: data.name });
       } catch (err) {
-        alert(err.message);
+        showToast(err.message);
       } finally {
         progress.classList.add('hidden');
       }
@@ -3928,7 +3928,7 @@
     if (state.call) return; // already in (or ringing for) a call
     if (!state.activeChat || state.activeGroup) return; // 1:1 only
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      alert('Звонки не поддерживаются в этом браузере');
+      showToast('Звонки не поддерживаются в этом браузере');
       return;
     }
     const peer = state.activeChat;
@@ -3938,7 +3938,7 @@
     try {
       localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video });
     } catch (e) {
-      alert('Не удалось получить доступ к микрофону' + (video ? '/камере' : ''));
+      showToast('Не удалось получить доступ к микрофону' + (video ? '/камере' : ''));
       return;
     }
 
@@ -4031,7 +4031,7 @@
     }
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
-      alert('Демонстрация экрана не поддерживается в этом браузере');
+      showToast('Демонстрация экрана не поддерживается в этом браузере');
       return;
     }
 
@@ -4180,14 +4180,14 @@
     if (state.groupCall || !state.activeGroup) return;
     if (state.call) return; // don't overlap with a 1:1 call
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      alert('Звонки не поддерживаются в этом браузере');
+      showToast('Звонки не поддерживаются в этом браузере');
       return;
     }
     navigator.mediaDevices.getUserMedia({ audio: true, video }).then(localStream => {
       state.groupCall = { callId: uid(), groupId: state.activeGroup.id, video, localStream, peers: new Map() };
       renderGroupCallUI();
       sendCallSignal({ callId: state.groupCall.callId, groupId: state.groupCall.groupId, signalType: 'join', video });
-    }).catch(() => alert('Не удалось получить доступ к микрофону' + (video ? '/камере' : '')));
+    }).catch(() => showToast('Не удалось получить доступ к микрофону' + (video ? '/камере' : '')));
   }
 
   function createGroupPeerConnection(peerUsername) {
