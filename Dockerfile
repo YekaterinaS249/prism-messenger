@@ -16,4 +16,9 @@ COPY --from=build /app/target/messenger.jar app.jar
 
 # Render/Railway/etc inject PORT at runtime; server.port in application.yml already reads it.
 EXPOSE 8081
-ENTRYPOINT ["java", "-jar", "app.jar"]
+
+# Бесплатный тариф Render даёт всего 512Mi на инстанс. Без явных лимитов JVM может
+# резервировать кучу (heap) слишком щедро и вылететь по Out of memory. Ограничиваем
+# явно: heap до 320Mi, metaspace до 96Mi — с запасом на потоки/стек/direct buffers
+# укладываемся в 512Mi.
+ENTRYPOINT ["java", "-Xmx320m", "-XX:MaxMetaspaceSize=96m", "-jar", "app.jar"]

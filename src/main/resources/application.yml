@@ -15,6 +15,11 @@ spring:
     driver-class-name: org.postgresql.Driver
     username: ${DB_USERNAME:messenger}
     password: ${DB_PASSWORD:messenger}
+    hikari:
+      # На бесплатных тарифах (Render 512Mi, Neon с ограничением подключений) пул из
+      # 10 соединений по умолчанию — лишний расход памяти. 5 достаточно для одного
+      # инстанса небольшого приложения.
+      maximum-pool-size: ${DB_POOL_SIZE:5}
 
   jpa:
     hibernate:
