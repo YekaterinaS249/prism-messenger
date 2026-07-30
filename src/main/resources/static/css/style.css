@@ -238,6 +238,13 @@ input, textarea { color-scheme: dark; }
 .primary-btn:hover { box-shadow: 0 0 26px rgba(0, 229, 255, 0.55); }
 .primary-btn:active { transform: translateY(1px); }
 
+.secondary-btn {
+  padding: 12px; border: 1px solid var(--border-strong, var(--border)); border-radius: var(--radius-sm);
+  background: var(--surface-2); color: var(--text); font-size: 14px; font-weight: 600; cursor: pointer;
+  transition: background .15s ease;
+}
+.secondary-btn:hover { background: var(--border); }
+
 .error { color: var(--danger); font-size: 13px; min-height: 16px; }
 .success { color: var(--success); font-size: 13px; min-height: 16px; }
 .hint { font-size: 12px; color: var(--text-muted); margin: -6px 0 0; }
@@ -748,6 +755,11 @@ input, textarea { color-scheme: dark; }
 }
 .avatar-edit-cta svg { width: 14px; height: 14px; }
 .avatar-edit-cta:hover { filter: brightness(1.15); }
+
+.modal-card-sm { max-width: 320px; }
+.confirm-message { color: var(--text); font-size: 14.5px; line-height: 1.45; margin: 0; white-space: pre-wrap; }
+.confirm-actions { display: flex; gap: 10px; }
+.confirm-actions .secondary-btn, .confirm-actions .primary-btn { flex: 1; margin-top: 0; }
 
 .group-members-list { display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow-y: auto; }
 .group-member-row {

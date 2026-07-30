@@ -1638,6 +1638,37 @@
     setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, duration);
   }
 
+  /**
+   * DOM-based replacement for window.confirm() — used everywhere a destructive action
+   * needs a yes/no confirmation, so nothing depends on the browser's native blocking dialog.
+   * Returns a Promise<boolean> resolving true if the user confirmed.
+   */
+  function showConfirm(message) {
+    return new Promise((resolve) => {
+      const modal = el('confirm-modal');
+      el('confirm-message').textContent = message;
+      modal.classList.remove('hidden');
+
+      const okBtn = el('confirm-ok-btn');
+      const cancelBtn = el('confirm-cancel-btn');
+
+      function cleanup(result) {
+        modal.classList.add('hidden');
+        okBtn.removeEventListener('click', onOk);
+        cancelBtn.removeEventListener('click', onCancel);
+        modal.removeEventListener('click', onBackdrop);
+        resolve(result);
+      }
+      function onOk() { cleanup(true); }
+      function onCancel() { cleanup(false); }
+      function onBackdrop(e) { if (e.target === modal) cleanup(false); }
+
+      okBtn.addEventListener('click', onOk);
+      cancelBtn.addEventListener('click', onCancel);
+      modal.addEventListener('click', onBackdrop);
+    });
+  }
+
   /** Plays a short in-app chime via WebAudio (no external sound files needed). */
   function playNotificationSound() {
     if (state.notificationSound === 'none') return;
@@ -2747,7 +2778,7 @@
       `;
       if (canManage) {
         div.querySelector('.board-card-del').addEventListener('click', async () => {
-          if (!confirm('Удалить эту запись с доски?')) return;
+          if (!(await showConfirm('Удалить эту запись с доски?'))) return;
           const res = await fetch('/api/board/' + p.id, { method: 'DELETE', headers: authHeaders() });
           if (res.ok) loadBoard();
         });
@@ -2875,7 +2906,7 @@
         }
         if (canDelete) {
           card.querySelector('.task-card-del').addEventListener('click', async () => {
-            if (!confirm('Удалить эту задачу?')) return;
+            if (!(await showConfirm('Удалить эту задачу?'))) return;
             const res = await fetch('/api/board/' + t.id, { method: 'DELETE', headers: authHeaders() });
             if (res.ok) loadBoard();
           });
@@ -3163,7 +3194,7 @@
           });
           menu.querySelector('[data-act="kick"]').addEventListener('click', async () => {
             menu.remove();
-            if (!confirm('Удалить ' + m.displayName + ' из группы?')) return;
+            if (!(await showConfirm('Удалить ' + m.displayName + ' из группы?'))) return;
             await fetch(`/api/groups/${state.activeGroup.id}/members/${encodeURIComponent(m.username)}`, {
               method: 'DELETE', headers: authHeaders()
             });
@@ -3190,7 +3221,7 @@
 
     el('group-leave-btn').addEventListener('click', async () => {
       if (!state.activeGroup) return;
-      if (!confirm('Покинуть группу «' + state.activeGroup.name + '»?')) return;
+      if (!(await showConfirm('Покинуть группу «' + state.activeGroup.name + '»?'))) return;
       const res = await fetch('/api/groups/' + state.activeGroup.id + '/leave', { method: 'POST', headers: authHeaders() });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) { el('group-info-error').textContent = data.error || 'Не удалось выйти из группы'; return; }
@@ -3203,7 +3234,7 @@
 
     el('group-delete-btn').addEventListener('click', async () => {
       if (!state.activeGroup) return;
-      if (!confirm('Удалить группу «' + state.activeGroup.name + '» для всех участников?')) return;
+      if (!(await showConfirm('Удалить группу «' + state.activeGroup.name + '» для всех участников?'))) return;
       const res = await fetch('/api/groups/' + state.activeGroup.id, { method: 'DELETE', headers: authHeaders() });
       if (!res.ok) { const data = await res.json().catch(() => ({})); el('group-info-error').textContent = data.error || 'Не удалось удалить группу'; return; }
       closeModal('group-info-modal');
@@ -3400,7 +3431,7 @@
     el('admin-users-bulk-ban-btn').addEventListener('click', async () => {
       const checked = Array.from(document.querySelectorAll('.admin-user-select:checked')).map(cb => cb.dataset.username);
       if (!checked.length) return;
-      if (!confirm('Забанить выбранных пользователей (' + checked.length + ')?')) return;
+      if (!(await showConfirm('Забанить выбранных пользователей (' + checked.length + ')?'))) return;
       await fetch('/api/users/admin/ban-bulk', {
         method: 'PUT',
         headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
@@ -3413,7 +3444,7 @@
       const message = el('admin-broadcast-text').value.trim();
       el('admin-broadcast-error').textContent = '';
       if (!message) { el('admin-broadcast-error').textContent = 'Введите текст объявления'; return; }
-      if (!confirm('Отправить это объявление всем пользователям?\n\n«' + message + '»')) return;
+      if (!(await showConfirm('Отправить это объявление всем пользователям?\n\n«' + message + '»'))) return;
       const res = await fetch('/api/admin/broadcast', {
         method: 'POST',
         headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
@@ -3428,8 +3459,8 @@
     ['admin-setting-registration', 'admin-setting-group-creation'].forEach(id => {
       el(id).addEventListener('change', saveAdminSettings);
     });
-    el('admin-setting-maintenance').addEventListener('change', (e) => {
-      if (e.target.checked && !confirm('Включить режим техобслуживания? Вход в приложение сразу закроется для всех, кроме администраторов.')) {
+    el('admin-setting-maintenance').addEventListener('change', async (e) => {
+      if (e.target.checked && !(await showConfirm('Включить режим техобслуживания? Вход в приложение сразу закроется для всех, кроме администраторов.'))) {
         e.target.checked = false;
         return;
       }
@@ -3507,7 +3538,7 @@
       if (roleSelect) {
         roleSelect.addEventListener('change', async (e) => {
           const newRole = e.target.value;
-          if (!confirm('Изменить роль пользователя ' + u.displayName + ' на «' + ROLE_LABELS[newRole] + '»?')) {
+          if (!(await showConfirm('Изменить роль пользователя ' + u.displayName + ' на «' + ROLE_LABELS[newRole] + '»?'))) {
             e.target.value = u.role;
             return;
           }
@@ -3520,7 +3551,7 @@
       const delBtn = row.querySelector('.admin-user-del');
       if (delBtn) {
         delBtn.addEventListener('click', async () => {
-          if (!confirm('Удалить пользователя ' + u.displayName + '? Это необратимо.')) return;
+          if (!(await showConfirm('Удалить пользователя ' + u.displayName + '? Это необратимо.'))) return;
           const delRes = await fetch('/api/users/admin/' + encodeURIComponent(u.username), { method: 'DELETE', headers: authHeaders() });
           if (delRes.ok) loadAdminUsers(state.adminUsersSearch, state.adminUsersPage);
         });
@@ -3782,7 +3813,7 @@
       `;
       if (canDelete) {
         div.querySelector('.news-card-delete').addEventListener('click', async () => {
-          if (!confirm('Удалить эту запись?')) return;
+          if (!(await showConfirm('Удалить эту запись?'))) return;
           const res = await fetch('/api/news/' + p.id, { method: 'DELETE', headers: authHeaders() });
           if (res.ok) loadNews();
         });
