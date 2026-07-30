@@ -1,0 +1,98 @@
+server:
+  # Большинство бесплатных хостингов (Render и т.п.) сами назначают порт через переменную
+  # окружения PORT и ждут, что приложение слушает именно его.
+  port: ${PORT:8081}
+
+spring:
+  application:
+    name: messenger
+
+  # По умолчанию используется PostgreSQL (см. docker-compose.yml, контейнер postgres-1 на порту 5433).
+  # Перед запуском убедитесь, что контейнер запущен: docker compose up -d
+  # Все значения ниже можно переопределить переменными окружения (см. .env.example).
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5433/messenger}
+    driver-class-name: org.postgresql.Driver
+    username: ${DB_USERNAME:messenger}
+    password: ${DB_PASSWORD:messenger}
+
+  jpa:
+    hibernate:
+      # Схема теперь версионируется через Flyway (см. db/migration) — Hibernate только
+      # сверяет, что мапping соответствует реальной схеме, и не меняет её сам.
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration/postgresql
+    baseline-on-migrate: true
+    baseline-version: 0
+
+  servlet:
+    multipart:
+      max-file-size: 25MB
+      max-request-size: 25MB
+
+  # SMTP для писем восстановления пароля. По умолчанию настроено под Mailtrap
+  # (sandbox для тестирования — письма не уходят реальным людям, видны в дэшборде
+  # mailtrap.io). Значения переопределяются переменными окружения, см. .env.example.
+  mail:
+    host: ${MAIL_HOST:sandbox.smtp.mailtrap.io}
+    port: ${MAIL_PORT:2525}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+    protocol: smtp
+
+app:
+  jwt:
+    # ОБЯЗАТЕЛЬНО переопределить переменной окружения JWT_SECRET в проде — значение по
+    # умолчанию годится только для локальной разработки.
+    secret: ${JWT_SECRET:change-this-super-secret-key-before-production-use-1234567890}
+    expiration-ms: ${JWT_EXPIRATION_MS:86400000} # 24 часа
+  uploads:
+    dir: ${UPLOADS_DIR:./uploads}
+  mail:
+    from: ${MAIL_FROM:no-reply@prism.local}
+    enabled: ${MAIL_ENABLED:false} # true как только заполнены MAIL_USERNAME/MAIL_PASSWORD
+  password-reset:
+    token-expiry-minutes: 30
+    base-url: ${APP_BASE_URL:http://localhost:8081}
+
+---
+# Резервный профиль: файловая H2 (на случай, если Docker/Postgres недоступен).
+# Запуск: --spring.profiles.active=h2
+spring:
+  config:
+    activate:
+      on-profile: h2
+  datasource:
+    url: jdbc:h2:file:./data/messenger;AUTO_SERVER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+  flyway:
+    enabled: true
+    locations: classpath:db/migration/h2
+    baseline-on-migrate: true
+    baseline-version: 0
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
