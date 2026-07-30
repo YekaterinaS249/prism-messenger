@@ -261,7 +261,9 @@ input, textarea { color-scheme: dark; }
 #app-screen { display: flex; height: 100vh; background: var(--surface); }
 
 .sidebar {
-  width: 320px; flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--border);
+  /* 360px вместо 320px: у админа в шапке на одну кнопку больше («Админ» с текстом),
+     на 320px ряд кнопок не помещался и «Выйти» вылезала за правый край. */
+  width: 360px; flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--border);
   display: flex; flex-direction: column;
 }
 .sidebar-header {
