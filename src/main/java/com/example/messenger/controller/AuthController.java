@@ -69,6 +69,14 @@ public class AuthController {
             return ResponseEntity.status(429).body(Map.of("error",
                     "Слишком много неудачных попыток входа. Попробуйте снова через " + UserService.getLockoutMinutes() + " минут"));
         }
+        // Проверяем бан ДО вызова authenticate(): UserDetailsServiceImpl помечает забаненный
+        // аккаунт как enabled=false, из-за чего Spring Security сам бросает DisabledException
+        // ещё до сравнения пароля — это исключение попадало в общий catch ниже и подменяло
+        // понятное сообщение о бане на "Invalid username or password", а заодно ошибочно
+        // засчитывало забаненному пользователю неудачную попытку входа в счётчик блокировки.
+        if (user.isBanned()) {
+            return ResponseEntity.status(403).body(Map.of("error", "Аккаунт заблокирован администратором"));
+        }
         try {
             authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(
                     user.getUsername(), UserService.normalizePassword(request.getPassword())));
@@ -81,9 +89,6 @@ public class AuthController {
             return ResponseEntity.status(401).body(Map.of("error", "Invalid username or password"));
         }
         userService.recordSuccessfulLogin(user);
-        if (user.isBanned()) {
-            return ResponseEntity.status(403).body(Map.of("error", "Аккаунт заблокирован администратором"));
-        }
         if (platformSettingsService.isMaintenanceMode() && !user.isAdmin()) {
             return ResponseEntity.status(403).body(Map.of("error", "Технические работы, доступ временно только для администраторов"));
         }

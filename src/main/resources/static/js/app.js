@@ -1669,6 +1669,44 @@
     });
   }
 
+  /**
+   * DOM-based replacement for window.prompt() — used for short free-text input tied to a
+   * confirmation (e.g. an optional ban reason). Returns a Promise<string|null>: null if
+   * cancelled, otherwise the trimmed input value (may be an empty string if left blank).
+   */
+  function showPrompt(message, placeholder) {
+    return new Promise((resolve) => {
+      const modal = el('prompt-modal');
+      const input = el('prompt-input');
+      el('prompt-message').textContent = message;
+      input.value = '';
+      input.placeholder = placeholder || '';
+      modal.classList.remove('hidden');
+      setTimeout(() => input.focus(), 0);
+
+      const okBtn = el('prompt-ok-btn');
+      const cancelBtn = el('prompt-cancel-btn');
+
+      function cleanup(result) {
+        modal.classList.add('hidden');
+        okBtn.removeEventListener('click', onOk);
+        cancelBtn.removeEventListener('click', onCancel);
+        modal.removeEventListener('click', onBackdrop);
+        input.removeEventListener('keydown', onKeydown);
+        resolve(result);
+      }
+      function onOk() { cleanup(input.value.trim()); }
+      function onCancel() { cleanup(null); }
+      function onBackdrop(e) { if (e.target === modal) cleanup(null); }
+      function onKeydown(e) { if (e.key === 'Enter') onOk(); else if (e.key === 'Escape') onCancel(); }
+
+      okBtn.addEventListener('click', onOk);
+      cancelBtn.addEventListener('click', onCancel);
+      modal.addEventListener('click', onBackdrop);
+      input.addEventListener('keydown', onKeydown);
+    });
+  }
+
   /** Plays a short in-app chime via WebAudio (no external sound files needed). */
   function playNotificationSound() {
     if (state.notificationSound === 'none') return;
@@ -3522,9 +3560,9 @@
           let url = '/api/users/admin/' + encodeURIComponent(u.username) + '/ban';
           const method = u.banned ? 'DELETE' : 'PUT';
           if (!u.banned) {
-            const reason = prompt('Причина блокировки пользователя ' + u.displayName + ' (необязательно):', '');
+            const reason = await showPrompt('Причина блокировки пользователя ' + u.displayName + ' (необязательно):', 'Причина (необязательно)');
             if (reason === null) return; // отменено
-            if (reason.trim()) url += '?reason=' + encodeURIComponent(reason.trim());
+            if (reason) url += '?reason=' + encodeURIComponent(reason);
           }
           await fetch(url, { method, headers: authHeaders() });
           loadAdminUsers(state.adminUsersSearch, state.adminUsersPage);
