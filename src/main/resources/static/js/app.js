@@ -523,7 +523,9 @@
     filtered.forEach(c => {
       const div = document.createElement('div');
       div.className = 'contact' + (state.activeChat === c.username ? ' active' : '');
-      div.dataset.username = c.username;
+      // Раньше здесь был div.dataset.username = c.username — нигде фактически не
+      // использовался (клик берёт username из замыкания c.username), только лишний раз
+      // светил логин в DOM. Видимое пользователю имя — c.displayName ниже, не трогаем.
       const statusLine = c.online ? 'в сети' : 'не в сети';
       const bio = c.status ? ' · ' + escapeHtml(c.status) : '';
       const preview = state.lastMessagePreview[contactKey(c.username)];
