@@ -1882,7 +1882,11 @@
       webSocketFactory: () => new SockJS('/ws'),
       connectHeaders: { Authorization: 'Bearer ' + state.token },
       reconnectDelay: 3000,
+      // data-ws-connected на body — маячок для автотестов: реальный статус STOMP-соединения,
+      // чтобы тест мог дождаться его перед отправкой сообщения, а не гадать с фиксированной
+      // паузой. На обычных пользователей никак не влияет.
       onConnect: () => {
+        document.body.dataset.wsConnected = 'true';
         state.stompClient.subscribe('/user/queue/messages', (frame) => {
           appendIncoming(JSON.parse(frame.body));
         });
@@ -1931,6 +1935,8 @@
         });
         if (state.activeGroup) subscribeToGroup(state.activeGroup.id);
       },
+      onDisconnect: () => { document.body.dataset.wsConnected = 'false'; },
+      onWebSocketClose: () => { document.body.dataset.wsConnected = 'false'; },
     });
     state.stompClient.activate();
   }
