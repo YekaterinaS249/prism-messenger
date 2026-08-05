@@ -92,12 +92,17 @@ public class ChatWebSocketController {
 
     /**
      * Client sends to /app/chat.edit to edit or delete one of their own messages (referenced by
-     * its client-generated id). Broadcast over the same channels as chat.send; nothing is
-     * persisted, so this only affects clients that currently have the conversation open.
+     * its client-generated id). Broadcast over the same channels as chat.send. A "delete" also
+     * soft-deletes the stored copy (see MessageService#markDeleted) so it's gone from history too
+     * — an "edit" (content change) stays live-only, same as before.
      */
     @MessageMapping("/chat.edit")
     public void edit(@Payload EditPayload payload, Principal principal) {
         payload.setSenderUsername(principal.getName());
+
+        if ("delete".equals(payload.getAction())) {
+            messageService.markDeleted(payload.getTargetClientId(), principal.getName());
+        }
 
         if (payload.getGroupId() != null) {
             if (!groupService.isMember(payload.getGroupId(), principal.getName())) return;

@@ -400,6 +400,7 @@
 
     await loadMe();
     await loadContacts();
+    await loadUnreadSummary();
     await loadBlockedUsers();
     await loadMyStickers();
     initE2E();
@@ -497,6 +498,27 @@
     renderContacts();
   }
 
+  /**
+   * Merges "unread while offline" counts (from persisted history) into the same state.unreadCounts
+   * map that live WebSocket delivery already increments — so the badge is correct whether the
+   * message arrived just now or while this browser was closed.
+   */
+  async function loadUnreadSummary() {
+    try {
+      const res = await fetch('/api/messages/unread-summary', { headers: authHeaders() });
+      if (!res.ok) return;
+      const data = await res.json();
+      Object.entries(data.direct || {}).forEach(([peer, count]) => {
+        state.unreadCounts[contactKey(peer)] = count;
+      });
+      Object.entries(data.group || {}).forEach(([groupId, count]) => {
+        state.unreadCounts[groupChatKey(groupId)] = count;
+      });
+      renderContacts();
+      if (state.myGroups && state.myGroups.length) renderGroups();
+    } catch (e) { /* best-effort — live unread counting still works if this fails */ }
+  }
+
   function renderContacts() {
     const container = el('contacts');
     const emptyBanner = el('contacts-empty');
@@ -576,6 +598,7 @@
     state.activeChat = username;
     state.unreadCounts[contactKey(username)] = 0;
     renderContacts();
+    fetch('/api/messages/direct/' + encodeURIComponent(username) + '/read', { method: 'POST', headers: authHeaders() }).catch(() => {});
     showMainPanel('chat');
     el('typing-indicator').classList.add('hidden');
     el('app-screen').classList.add('chat-open');
@@ -2475,6 +2498,7 @@
     state.activeGroup = group;
     state.unreadCounts[groupChatKey(group.id)] = 0;
     renderGroups();
+    fetch('/api/messages/group/' + group.id + '/read', { method: 'POST', headers: authHeaders() }).catch(() => {});
 
     showMainPanel('chat');
     el('typing-indicator').classList.add('hidden');

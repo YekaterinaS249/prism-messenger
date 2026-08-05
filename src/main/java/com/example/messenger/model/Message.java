@@ -80,6 +80,11 @@ public class Message {
     @Column(nullable = false, columnDefinition = "boolean default false")
     private boolean action;
 
+    // Soft-delete: set when the sender deletes this message via /app/chat.edit (action=delete).
+    // Excluded from history queries — matches the live behaviour of the bubble just disappearing.
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private boolean deleted;
+
     // True if `content` is E2E ciphertext (direct chats only) — server never decrypts it.
     @Column(nullable = false, columnDefinition = "boolean default false")
     private boolean encrypted;
@@ -148,6 +153,9 @@ public class Message {
 
     public boolean isAction() { return action; }
     public void setAction(boolean action) { this.action = action; }
+
+    public boolean isDeleted() { return deleted; }
+    public void setDeleted(boolean deleted) { this.deleted = deleted; }
 
     public boolean isEncrypted() { return encrypted; }
     public void setEncrypted(boolean encrypted) { this.encrypted = encrypted; }

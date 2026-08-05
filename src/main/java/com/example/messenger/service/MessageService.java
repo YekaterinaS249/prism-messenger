@@ -4,7 +4,9 @@ import com.example.messenger.dto.ChatMessagePayload;
 import com.example.messenger.dto.PageResponse;
 import com.example.messenger.model.Message;
 import com.example.messenger.model.MessageType;
+import com.example.messenger.model.ReadMarker;
 import com.example.messenger.repository.MessageRepository;
+import com.example.messenger.repository.ReadMarkerRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.data.domain.Page;
@@ -16,21 +18,32 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Persists chat messages sent via /app/chat.send and serves history for a direct chat or a
- * group. Reactions, edits, deletions, poll votes and pins stay live-only (see ChatWebSocketController)
- * — history reflects messages as they were originally sent, not their later live-edited state.
+ * group. Reactions, edits, poll votes and pins stay live-only (see ChatWebSocketController) —
+ * history reflects messages as they were originally sent, not their later live-edited state.
+ * Deletions ARE reflected (soft-deleted rows are excluded from history), matching the fact that
+ * a deleted message also just disappears from currently-open live conversations.
+ *
+ * Also tracks per-user read markers (ReadMarker) so unread counts survive being offline —
+ * before this, "unread" only ever counted messages that arrived while the recipient was
+ * actively connected.
  */
 @Service
 public class MessageService {
 
     private final MessageRepository messageRepository;
+    private final ReadMarkerRepository readMarkerRepository;
     private final ObjectMapper objectMapper;
 
-    public MessageService(MessageRepository messageRepository, ObjectMapper objectMapper) {
+    public MessageService(MessageRepository messageRepository, ReadMarkerRepository readMarkerRepository,
+                           ObjectMapper objectMapper) {
         this.messageRepository = messageRepository;
+        this.readMarkerRepository = readMarkerRepository;
         this.objectMapper = objectMapper;
     }
 
@@ -70,6 +83,78 @@ public class MessageService {
         m.setLat(payload.getLat());
         m.setLng(payload.getLng());
         messageRepository.save(m);
+    }
+
+    /**
+     * Soft-deletes the stored copy of a message a user just deleted live (see
+     * ChatWebSocketController#edit). Scoped to (clientId, senderUsername) so only the original
+     * sender's own message can ever be affected — a cheap safety net matching the doc comment on
+     * EditPayload ("only the original sender may issue this").
+     */
+    public void markDeleted(String clientId, String senderUsername) {
+        if (clientId == null) return;
+        messageRepository.findFirstByClientIdAndSenderUsername(clientId, senderUsername)
+                .ifPresent(m -> { m.setDeleted(true); messageRepository.save(m); });
+    }
+
+    public void markDirectRead(String me, String peer) {
+        ReadMarker marker = readMarkerRepository.findByUsernameAndPeerUsername(me, peer).orElseGet(() -> {
+            ReadMarker m = new ReadMarker();
+            m.setUsername(me);
+            m.setPeerUsername(peer);
+            return m;
+        });
+        marker.setLastReadAt(Instant.now());
+        readMarkerRepository.save(marker);
+    }
+
+    public void markGroupRead(String me, Long groupId) {
+        ReadMarker marker = readMarkerRepository.findByUsernameAndGroupId(me, groupId).orElseGet(() -> {
+            ReadMarker m = new ReadMarker();
+            m.setUsername(me);
+            m.setGroupId(groupId);
+            return m;
+        });
+        marker.setLastReadAt(Instant.now());
+        readMarkerRepository.save(marker);
+    }
+
+    /**
+     * Unread counts per direct peer and per group, including messages that arrived while the
+     * user was offline (now possible since messages are persisted). A conversation with no read
+     * marker yet is treated as fully unread — harmless in practice since message persistence
+     * itself only just shipped, so there's no large historical backlog to worry about.
+     */
+    public Map<String, Object> getUnreadSummary(String me, List<Long> myGroupIds) {
+        Map<String, Instant> directMarkers = new HashMap<>();
+        Map<Long, Instant> groupMarkers = new HashMap<>();
+        for (ReadMarker rm : readMarkerRepository.findByUsername(me)) {
+            if (rm.getPeerUsername() != null) directMarkers.put(rm.getPeerUsername(), rm.getLastReadAt());
+            else if (rm.getGroupId() != null) groupMarkers.put(rm.getGroupId(), rm.getLastReadAt());
+        }
+
+        Map<String, Long> direct = new HashMap<>();
+        for (Message m : messageRepository.findAllReceivedDirect(me)) {
+            Instant since = directMarkers.get(m.getSenderUsername());
+            if (since == null || m.getCreatedAt().isAfter(since)) {
+                direct.merge(m.getSenderUsername(), 1L, Long::sum);
+            }
+        }
+
+        Map<String, Long> group = new HashMap<>();
+        if (myGroupIds != null && !myGroupIds.isEmpty()) {
+            for (Message m : messageRepository.findAllReceivedInGroups(myGroupIds, me)) {
+                Instant since = groupMarkers.get(m.getGroupId());
+                if (since == null || m.getCreatedAt().isAfter(since)) {
+                    group.merge(String.valueOf(m.getGroupId()), 1L, Long::sum);
+                }
+            }
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("direct", direct);
+        result.put("group", group);
+        return result;
     }
 
     public PageResponse<ChatMessagePayload> getDirectHistory(String userA, String userB, int page, int size) {
