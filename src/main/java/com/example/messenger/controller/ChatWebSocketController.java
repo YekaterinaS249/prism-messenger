@@ -10,6 +10,7 @@ import com.example.messenger.dto.VotePayload;
 import com.example.messenger.repository.UserRepository;
 import com.example.messenger.service.ChatService;
 import com.example.messenger.service.GroupService;
+import com.example.messenger.service.MessageService;
 import com.example.messenger.service.UserService;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
@@ -26,22 +27,25 @@ public class ChatWebSocketController {
     private final SimpMessagingTemplate messagingTemplate;
     private final UserRepository userRepository;
     private final UserService userService;
+    private final MessageService messageService;
 
     public ChatWebSocketController(ChatService chatService, GroupService groupService,
                                     SimpMessagingTemplate messagingTemplate, UserRepository userRepository,
-                                    UserService userService) {
+                                    UserService userService, MessageService messageService) {
         this.chatService = chatService;
         this.groupService = groupService;
         this.messagingTemplate = messagingTemplate;
         this.userRepository = userRepository;
         this.userService = userService;
+        this.messageService = messageService;
     }
 
     /**
      * Client sends to /app/chat.send. If payload.groupId is set, it's a group/channel message
      * (broadcast to /topic/group.{id}); otherwise it's a 1-on-1 direct message (relayed to the
-     * sender + recipient private queues). Nothing is persisted — the payload is enriched with a
-     * timestamp and sender name, then relayed live only to currently connected recipients.
+     * sender + recipient private queues). The payload is enriched with a timestamp and sender
+     * name, relayed live to currently connected recipients, and — unless it's a self-destructing
+     * message — saved via MessageService so it's there on reload (see /api/messages/**).
      */
     @MessageMapping("/chat.send")
     public void send(@Payload ChatMessagePayload payload, Principal principal) {
@@ -54,11 +58,13 @@ public class ChatWebSocketController {
             }
             payload.setRecipientUsername(null);
             ChatMessagePayload out = chatService.enrich(payload);
+            messageService.save(out);
             messagingTemplate.convertAndSend("/topic/group." + out.getGroupId(), out);
             return;
         }
 
         ChatMessagePayload out = chatService.enrich(payload);
+        messageService.save(out);
         // If the recipient has blocked us, the message is simply never delivered to them — we
         // still echo it back to the sender so their own composer/UI doesn't appear broken.
         if (!userService.isBlocked(out.getRecipientUsername(), out.getSenderUsername())) {

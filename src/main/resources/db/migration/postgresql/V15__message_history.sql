@@ -1,0 +1,29 @@
+CREATE TABLE IF NOT EXISTS message (
+    id BIGSERIAL PRIMARY KEY,
+    sender_username varchar(50) NOT NULL,
+    sender_display_name varchar(100),
+    sender_avatar_url varchar(500),
+    recipient_username varchar(50),
+    group_id bigint,
+    content text,
+    type varchar(20) NOT NULL DEFAULT 'TEXT',
+    media_url varchar(500),
+    media_name varchar(255),
+    created_at TIMESTAMP NOT NULL DEFAULT now(),
+    client_id varchar(100),
+    reply_to_client_id varchar(100),
+    reply_to_sender_name varchar(100),
+    reply_to_snippet varchar(500),
+    poll_question text,
+    poll_options_json text,
+    action boolean NOT NULL DEFAULT false,
+    encrypted boolean NOT NULL DEFAULT false,
+    iv varchar(100),
+    forwarded_from varchar(50),
+    lat double precision,
+    lng double precision
+);
+
+CREATE INDEX IF NOT EXISTS idx_message_group ON message (group_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_message_direct_sender ON message (sender_username, recipient_username, created_at);
+CREATE INDEX IF NOT EXISTS idx_message_direct_recipient ON message (recipient_username, sender_username, created_at);

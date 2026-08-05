@@ -600,8 +600,6 @@
     state.activePin = null;
     renderPinnedBanner();
 
-    // Messages aren't stored anywhere, so there's no history to load — the pane
-    // starts empty and fills in with whatever arrives live from here on.
     el('messages').innerHTML = '';
     state.recentMessages = {};
     state.messageReactions = {};
@@ -610,9 +608,30 @@
     clearReplyTarget();
     applyChatTheme();
     loadDraftIntoComposer();
+    loadChatHistory(username);
     // Refresh contacts in the background so a peer's E2E public key (published after we last
     // loaded the list) is picked up before the next message is sent.
     loadContacts();
+  }
+
+  /** Loads the last page of stored history for a direct chat and renders it above whatever arrives live. */
+  async function loadChatHistory(username) {
+    try {
+      const res = await fetch('/api/messages/direct/' + encodeURIComponent(username), { headers: authHeaders() });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (state.activeChat !== username) return; // user already switched to another chat
+      for (const m of data.content) {
+        if (m.encrypted && !m.groupId) {
+          const plaintext = await decryptFromPeer(username, m.content, m.iv);
+          m.content = plaintext !== null ? plaintext : '🔒 Не удалось расшифровать сообщение';
+          m.decryptFailed = plaintext === null;
+        }
+        renderMessage(m, false);
+      }
+      const box = el('messages');
+      box.scrollTop = box.scrollHeight;
+    } catch (e) { /* history is best-effort — live messages still work if this fails */ }
   }
 
   // ---------- Voice message waveform player ----------
@@ -2478,8 +2497,6 @@
 
     subscribeToGroup(group.id);
 
-    // Messages aren't stored anywhere, so there's no history to load — the pane
-    // starts empty and fills in with whatever arrives live from here on.
     el('messages').innerHTML = '';
     state.recentMessages = {};
     state.messageReactions = {};
@@ -2488,6 +2505,22 @@
     applyChatTheme();
     loadDraftIntoComposer();
     loadGroupMemberNames(group.id);
+    loadGroupHistory(group.id);
+  }
+
+  /** Loads the last page of stored history for a group chat and renders it above whatever arrives live. */
+  async function loadGroupHistory(groupId) {
+    try {
+      const res = await fetch('/api/messages/group/' + groupId, { headers: authHeaders() });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!state.activeGroup || String(state.activeGroup.id) !== String(groupId)) return; // switched away already
+      for (const m of data.content) {
+        renderMessage(m, true);
+      }
+      const box = el('messages');
+      box.scrollTop = box.scrollHeight;
+    } catch (e) { /* history is best-effort — live messages still work if this fails */ }
   }
 
   // Caches username -> displayName for this group's members so @mentions can be rendered

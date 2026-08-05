@@ -9,11 +9,10 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 
 /**
- * Messages are relayed live over WebSocket only — nothing about an individual message is written
- * to the database (no content, sender, or recipient). This service just fills in server-trusted
- * fields (timestamp, sender display name) before the payload is broadcast, and bumps an
- * aggregate day-bucketed counter (see AnalyticsService) purely for the admin dashboard — there is
- * still no per-message persistence or history to query.
+ * Fills in server-trusted fields (timestamp, sender display name/avatar) before a chat payload is
+ * broadcast, and bumps an aggregate day-bucketed counter (see AnalyticsService) for the admin
+ * dashboard. Persistence of the enriched payload itself happens separately in MessageService,
+ * called from ChatWebSocketController after this.
  */
 @Service
 public class ChatService {

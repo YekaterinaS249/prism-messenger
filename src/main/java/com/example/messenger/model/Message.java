@@ -1,102 +1,157 @@
-package com.example.messenger.dto;
+package com.example.messenger.model;
 
-import com.example.messenger.model.MessageType;
-
-import java.util.List;
+import javax.persistence.*;
+import java.time.Instant;
 
 /**
- * Payload exchanged live over STOMP (/app/chat.send) and also the shape returned by the
- * /api/messages/** history endpoints. Saved via MessageService unless self-destructing
- * (expiresInSeconds set) — see Message.java for what's actually persisted vs. relay-only.
+ * Persisted chat message — added so chat history survives reconnects/reloads. Before this,
+ * messages were relayed live over WebSocket only and never stored anywhere (see
+ * ChatWebSocketController/ChatService doc comments predating this entity).
+ *
+ * Scope: only the core message content is persisted here. Reactions, edits, deletions, poll
+ * votes, pins and typing indicators remain live-only, exactly as before — this table stores
+ * messages as they were originally sent, not their live-edited state.
+ *
+ * Self-destructing messages (expiresInSeconds set) are intentionally never saved here at all —
+ * persisting them would defeat the point of "disappears after N seconds".
  */
-public class ChatMessagePayload {
-    private String senderUsername;
-    private String senderDisplayName;
-    private String senderAvatarUrl;
-    private String recipientUsername;
-    private Long groupId;
-    private String content;
-    private MessageType type = MessageType.TEXT;
-    private String mediaUrl;
-    private String mediaName;
-    private String createdAt;
+@Entity
+@Table(name = "message")
+public class Message {
 
-    // Client-generated id so replies/reactions can reference this exact message even
-    // though nothing is persisted server-side; the server just relays it unchanged.
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false, length = 50)
+    private String senderUsername;
+
+    // Denormalized snapshot of the sender's name/avatar at send time — avoids an extra lookup
+    // per historical message when loading a page of history, at the cost of not reflecting later
+    // profile changes (consistent with "stores messages as they were originally sent" above).
+    @Column(length = 100)
+    private String senderDisplayName;
+
+    @Column(length = 500)
+    private String senderAvatarUrl;
+
+    // Null for group messages.
+    @Column(length = 50)
+    private String recipientUsername;
+
+    // Null for direct messages.
+    @Column
+    private Long groupId;
+
+    @Column(columnDefinition = "text")
+    private String content;
+
+    @Column(nullable = false, length = 20)
+    private String type = "TEXT";
+
+    @Column(length = 500)
+    private String mediaUrl;
+
+    @Column(length = 255)
+    private String mediaName;
+
+    @Column(nullable = false)
+    private Instant createdAt = Instant.now();
+
+    @Column(length = 100)
     private String clientId;
+
+    @Column(length = 100)
     private String replyToClientId;
+
+    @Column(length = 100)
     private String replyToSenderName;
+
+    @Column(length = 500)
     private String replyToSnippet;
 
-    // Only meaningful for POLL messages; votes are tracked live via /app/chat.vote, not persisted.
+    @Column(columnDefinition = "text")
     private String pollQuestion;
-    private List<String> pollOptions;
 
-    // "/me" style action message: rendered as "* Sender did something" instead of a normal bubble.
+    // JSON-serialized List<String> (kept as plain text — no need for a separate table for MVP).
+    @Column(columnDefinition = "text")
+    private String pollOptionsJson;
+
+    @Column(nullable = false, columnDefinition = "boolean default false")
     private boolean action;
 
-    // Self-destruct: client-enforced only (nothing is persisted anyway), tells recipients'
-    // clients to remove this message from view after N seconds.
-    private Integer expiresInSeconds;
-
-    // End-to-end encryption (direct chats only): when true, `content` holds base64 AES-GCM
-    // ciphertext and `iv` holds the base64 nonce used to produce it. The server never decrypts
-    // or inspects either field — it's a pure relay, same as everything else here.
+    // True if `content` is E2E ciphertext (direct chats only) — server never decrypts it.
+    @Column(nullable = false, columnDefinition = "boolean default false")
     private boolean encrypted;
+
+    @Column(length = 100)
     private String iv;
 
-    // Set when this message is a forward of another one; holds the original sender's display
-    // name so the UI can show "Переслано от <name>". Purely client-set and relayed, like everything else here.
+    @Column(length = 50)
     private String forwardedFrom;
 
-    // Only meaningful for LOCATION messages: a one-shot lat/lng shared from the browser's
-    // Geolocation API. Purely relayed, like everything else here.
     private Double lat;
     private Double lng;
 
+    public Message() {}
+
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+
     public String getSenderUsername() { return senderUsername; }
     public void setSenderUsername(String senderUsername) { this.senderUsername = senderUsername; }
+
     public String getSenderDisplayName() { return senderDisplayName; }
     public void setSenderDisplayName(String senderDisplayName) { this.senderDisplayName = senderDisplayName; }
+
     public String getSenderAvatarUrl() { return senderAvatarUrl; }
     public void setSenderAvatarUrl(String senderAvatarUrl) { this.senderAvatarUrl = senderAvatarUrl; }
+
     public String getRecipientUsername() { return recipientUsername; }
     public void setRecipientUsername(String recipientUsername) { this.recipientUsername = recipientUsername; }
+
     public Long getGroupId() { return groupId; }
     public void setGroupId(Long groupId) { this.groupId = groupId; }
+
     public String getContent() { return content; }
     public void setContent(String content) { this.content = content; }
-    public MessageType getType() { return type; }
-    public void setType(MessageType type) { this.type = type; }
+
+    public String getType() { return type; }
+    public void setType(String type) { this.type = type; }
+
     public String getMediaUrl() { return mediaUrl; }
     public void setMediaUrl(String mediaUrl) { this.mediaUrl = mediaUrl; }
+
     public String getMediaName() { return mediaName; }
     public void setMediaName(String mediaName) { this.mediaName = mediaName; }
-    public String getCreatedAt() { return createdAt; }
-    public void setCreatedAt(String createdAt) { this.createdAt = createdAt; }
+
+    public Instant getCreatedAt() { return createdAt; }
+    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 
     public String getClientId() { return clientId; }
     public void setClientId(String clientId) { this.clientId = clientId; }
+
     public String getReplyToClientId() { return replyToClientId; }
     public void setReplyToClientId(String replyToClientId) { this.replyToClientId = replyToClientId; }
+
     public String getReplyToSenderName() { return replyToSenderName; }
     public void setReplyToSenderName(String replyToSenderName) { this.replyToSenderName = replyToSenderName; }
+
     public String getReplyToSnippet() { return replyToSnippet; }
     public void setReplyToSnippet(String replyToSnippet) { this.replyToSnippet = replyToSnippet; }
 
     public String getPollQuestion() { return pollQuestion; }
     public void setPollQuestion(String pollQuestion) { this.pollQuestion = pollQuestion; }
-    public List<String> getPollOptions() { return pollOptions; }
-    public void setPollOptions(List<String> pollOptions) { this.pollOptions = pollOptions; }
+
+    public String getPollOptionsJson() { return pollOptionsJson; }
+    public void setPollOptionsJson(String pollOptionsJson) { this.pollOptionsJson = pollOptionsJson; }
 
     public boolean isAction() { return action; }
     public void setAction(boolean action) { this.action = action; }
 
-    public Integer getExpiresInSeconds() { return expiresInSeconds; }
-    public void setExpiresInSeconds(Integer expiresInSeconds) { this.expiresInSeconds = expiresInSeconds; }
-
     public boolean isEncrypted() { return encrypted; }
     public void setEncrypted(boolean encrypted) { this.encrypted = encrypted; }
+
     public String getIv() { return iv; }
     public void setIv(String iv) { this.iv = iv; }
 
@@ -105,6 +160,7 @@ public class ChatMessagePayload {
 
     public Double getLat() { return lat; }
     public void setLat(Double lat) { this.lat = lat; }
+
     public Double getLng() { return lng; }
     public void setLng(Double lng) { this.lng = lng; }
 }
