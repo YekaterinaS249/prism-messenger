@@ -1783,9 +1783,18 @@
     // controlling this tab, the very first load after it updates can still be served by the
     // outgoing worker. Reload once automatically when control actually switches over, so a
     // returning user never has to figure out a manual hard-refresh to pick up a fix.
+    //
+    // Only do this if the tab was already controlled by some worker before this registration —
+    // "controllerchange" also fires the very first time ANY worker claims a previously
+    // uncontrolled page (via clients.claim() in sw.js), which happens on every first-ever visit.
+    // Reloading then serves no purpose (there's nothing stale to replace) and just causes an
+    // unexpected reload moments after the page loads — this was firing on every fresh visit,
+    // including in automated tests, which could catch the page mid-reload right after a login
+    // attempt and see it lose whatever it was doing.
+    const hadController = !!navigator.serviceWorker.controller;
     let reloadedForNewWorker = false;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (reloadedForNewWorker) return;
+      if (!hadController || reloadedForNewWorker) return;
       reloadedForNewWorker = true;
       window.location.reload();
     });
