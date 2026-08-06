@@ -20,13 +20,13 @@ public class ReadMarker {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, length = 50)
+    @Column(name = "username", nullable = false, length = 50)
     private String username;
 
-    @Column(length = 50)
+    @Column(name = "peer_username", length = 50)
     private String peerUsername;
 
-    @Column
+    @Column(name = "group_id")
     private Long groupId;
 
     @Column(nullable = false)
