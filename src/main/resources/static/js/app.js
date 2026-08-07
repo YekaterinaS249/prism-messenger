@@ -1860,12 +1860,17 @@
     if (!e2eSupported()) return;
     try {
       const db = await openE2eDb();
-      let record = await idbGet(db, 'keys', 'ecdh');
+      // Keyed by username, not a fixed literal — otherwise two different accounts logging into
+      // the same browser (shared computer, or a test suite reusing one page for sender/receiver)
+      // would silently share one ECDH key pair. The second account to log in would overwrite the
+      // first account's server-published public key with its own, permanently breaking
+      // decryption of anything encrypted before that happened.
+      let record = await idbGet(db, 'keys', state.username);
       if (!record || !record.privateKey) {
         const pair = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, false, ['deriveKey']);
         const rawPub = await crypto.subtle.exportKey('raw', pair.publicKey);
         record = { privateKey: pair.privateKey, publicKeyB64: bytesToBase64(new Uint8Array(rawPub)) };
-        await idbPut(db, 'keys', 'ecdh', record);
+        await idbPut(db, 'keys', state.username, record);
       }
       state.e2eKeyPair = record;
       // Idempotent: keeps the server copy in sync even if it was wiped or this is a new device.
