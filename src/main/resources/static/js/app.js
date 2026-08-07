@@ -1874,13 +1874,22 @@
       }
       state.e2eKeyPair = record;
       // Idempotent: keeps the server copy in sync even if it was wiped or this is a new device.
-      fetch('/api/users/me/public-key', {
+      // Awaited (not fire-and-forget) so data-e2e-ready below only appears once the server
+      // actually has this account's current public key — see the comment on that line.
+      await fetch('/api/users/me/public-key', {
         method: 'PUT',
         headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
         body: JSON.stringify({ publicKey: record.publicKeyB64 }),
       }).catch(() => {});
     } catch (e) {
       state.e2eKeyPair = null; // falls back to plaintext everywhere below
+    } finally {
+      // Маячок для автотестов: ключ сгенерирован/загружен И опубликован на сервер (или E2E
+      // точно недоступен в этом браузере). waitForConnection() смотрит только на WebSocket и
+      // может резолвиться раньше, чем этот PUT долетит до сервера — из-за чего вторая сторона,
+      // подтягивая контакты сразу после этого, видит устаревший или отсутствующий публичный
+      // ключ и не может ни зашифровать, ни расшифровать сообщения с этим собеседником.
+      document.body.dataset.e2eReady = 'true';
     }
   }
 
