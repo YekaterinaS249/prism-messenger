@@ -492,7 +492,10 @@
   }
 
   async function loadContacts() {
-    const res = await fetch('/api/users/contacts', { headers: authHeaders() });
+    // no-store: contacts carry each user's E2E public key, which must always be current — a
+    // stale cached response here (e.g. right after a reload) silently breaks encryption/
+    // decryption with anyone whose key changed since the last fetch.
+    const res = await fetch('/api/users/contacts', { headers: authHeaders(), cache: 'no-store' });
     if (res.status === 401) return logoutForced();
     state.contacts = await res.json();
     renderContacts();
