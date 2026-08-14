@@ -192,6 +192,25 @@
     });
   }
 
+  /**
+   * Manual replacement for native HTML5 constraint-validation UI (the browser's own
+   * "Please fill out this field" bubble). That bubble isn't part of the DOM — it can't be
+   * inspected, asserted on, or read by Playwright/screen readers — so empty/invalid auth
+   * forms appeared to fail silently to anything but a human eyeballing the screen. Forms now
+   * have novalidate, and each submit handler calls this first to render the same message
+   * into the existing .error div used for server-side errors.
+   */
+  function firstValidationError(form) {
+    const invalid = form.querySelector(':invalid');
+    if (!invalid) return null;
+    const label = invalid.closest('label')?.querySelector('span')?.textContent || invalid.placeholder || 'Поле';
+    if (invalid.validity.valueMissing) return `Заполните поле «${label}»`;
+    if (invalid.validity.tooShort) return `«${label}»: минимум ${invalid.minLength} символов`;
+    if (invalid.validity.patternMismatch) return invalid.title || `«${label}»: недопустимый формат`;
+    if (invalid.validity.typeMismatch) return `«${label}»: некорректный формат`;
+    return invalid.validationMessage || 'Проверьте правильность заполнения формы';
+  }
+
   el('forgot-password-link').addEventListener('click', () => {
     el('forgot-password-error').textContent = '';
     el('forgot-password-success').textContent = '';
@@ -205,6 +224,8 @@
     e.preventDefault();
     el('forgot-password-error').textContent = '';
     el('forgot-password-success').textContent = '';
+    const validationError = firstValidationError(e.target);
+    if (validationError) { el('forgot-password-error').textContent = validationError; return; }
     const usernameOrEmail = el('forgot-username').value.trim();
     try {
       const res = await fetch('/api/auth/forgot-password', {
@@ -226,6 +247,8 @@
   el('reset-password-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     el('reset-password-error').textContent = '';
+    const validationError = firstValidationError(e.target);
+    if (validationError) { el('reset-password-error').textContent = validationError; return; }
     const newPassword = el('reset-new-password').value;
     const confirmPassword = el('reset-confirm-password').value;
     if (newPassword !== confirmPassword) {
@@ -262,6 +285,8 @@
   el('login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     el('login-error').textContent = '';
+    const validationError = firstValidationError(e.target);
+    if (validationError) { el('login-error').textContent = validationError; return; }
     const username = el('login-username').value.trim();
     const password = el('login-password').value;
     try {
@@ -281,6 +306,8 @@
   el('register-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     el('register-error').textContent = '';
+    const validationError = firstValidationError(e.target);
+    if (validationError) { el('register-error').textContent = validationError; return; }
     const username = el('reg-username').value.trim();
     const displayName = el('reg-displayname').value.trim();
     const email = el('reg-email').value.trim();

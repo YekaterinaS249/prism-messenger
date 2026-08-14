@@ -83,7 +83,7 @@
         <button class="tab-btn" data-tab="register">Регистрация</button>
       </div>
 
-      <form id="login-form" class="auth-form">
+      <form id="login-form" class="auth-form" novalidate>
         <label class="field">
           <span>Логин или email</span>
           <input type="text" id="login-username" placeholder="Введите логин или email" required autocomplete="username" maxlength="150">
@@ -106,7 +106,7 @@
         <div class="error" id="login-error"></div>
       </form>
 
-      <form id="forgot-password-form" class="auth-form hidden">
+      <form id="forgot-password-form" class="auth-form hidden" novalidate>
         <p class="hint">Введите логин или email, мы отправим ссылку для сброса пароля.</p>
         <label class="field">
           <span>Логин или email</span>
@@ -118,7 +118,7 @@
         <button type="button" id="back-to-login-link" class="auth-link-btn centered">Назад ко входу</button>
       </form>
 
-      <form id="reset-password-form" class="auth-form hidden">
+      <form id="reset-password-form" class="auth-form hidden" novalidate>
         <p class="hint">Придумайте новый пароль для входа.</p>
         <label class="field">
           <span>Новый пароль</span>
@@ -142,7 +142,7 @@
         <button type="button" id="reset-back-to-login-link" class="auth-link-btn centered">Назад ко входу</button>
       </form>
 
-      <form id="register-form" class="auth-form hidden">
+      <form id="register-form" class="auth-form hidden" novalidate>
         <label class="field">
           <span>Логин</span>
           <input type="text" id="reg-username" placeholder="Придумайте логин" required minlength="3" maxlength="50"
