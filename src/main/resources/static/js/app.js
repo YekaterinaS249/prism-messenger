@@ -203,6 +203,7 @@
     const label = field.closest('label')?.querySelector('span')?.textContent || field.placeholder || 'Поле';
     if (field.validity.valueMissing) return `Заполните поле «${label}»`;
     if (field.validity.tooShort) return `«${label}»: минимум ${field.minLength} символов`;
+    if (field.validity.tooLong) return `«${label}»: максимум ${field.maxLength} символов`;
     if (field.validity.patternMismatch) return field.title || `«${label}»: недопустимый формат`;
     if (field.validity.typeMismatch) return `«${label}»: некорректный формат`;
     return field.validationMessage || 'Проверьте правильность заполнения поля';
