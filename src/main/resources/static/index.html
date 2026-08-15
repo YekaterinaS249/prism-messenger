@@ -146,20 +146,23 @@
         <label class="field">
           <span>Логин</span>
           <input type="text" id="reg-username" placeholder="Придумайте логин" required minlength="3" maxlength="50"
-                 pattern="[a-zA-Z0-9_.]+" title="Только латинские буквы, цифры, точка и подчёркивание">
+                 pattern="[a-zA-Z0-9_.]+" title="Только латинские буквы, цифры, точка и подчёркивание" aria-describedby="reg-username-error">
+          <span class="field-error" id="reg-username-error"></span>
         </label>
         <label class="field">
           <span>Отображаемое имя</span>
-          <input type="text" id="reg-displayname" placeholder="Как вас видят другие" required maxlength="100">
+          <input type="text" id="reg-displayname" placeholder="Как вас видят другие" required maxlength="100" aria-describedby="reg-displayname-error">
+          <span class="field-error" id="reg-displayname-error"></span>
         </label>
         <label class="field">
           <span>Email</span>
-          <input type="email" id="reg-email" placeholder="Для восстановления пароля" required maxlength="150">
+          <input type="email" id="reg-email" placeholder="Для восстановления пароля" required maxlength="150" aria-describedby="reg-email-error">
+          <span class="field-error" id="reg-email-error"></span>
         </label>
         <label class="field">
           <span>Пароль</span>
           <div class="pass-wrap">
-            <input type="password" id="reg-password" placeholder="Минимум 8 символов" required minlength="8" maxlength="64">
+            <input type="password" id="reg-password" placeholder="Минимум 8 символов" required minlength="8" maxlength="64" aria-describedby="reg-password-error">
             <button type="button" class="eye-btn" data-target="reg-password" aria-label="Показать пароль">
               <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z" stroke="currentColor" stroke-width="1.6"/>
@@ -168,6 +171,7 @@
               </svg>
             </button>
           </div>
+          <span class="field-error" id="reg-password-error"></span>
         </label>
         <button type="submit" class="primary-btn">Создать аккаунт</button>
         <div class="error" id="register-error"></div>

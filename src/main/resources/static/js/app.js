@@ -197,18 +197,44 @@
    * "Please fill out this field" bubble). That bubble isn't part of the DOM — it can't be
    * inspected, asserted on, or read by Playwright/screen readers — so empty/invalid auth
    * forms appeared to fail silently to anything but a human eyeballing the screen. Forms now
-   * have novalidate, and each submit handler calls this first to render the same message
-   * into the existing .error div used for server-side errors.
+   * have novalidate, and submit handlers use these to render the same messages into the DOM.
    */
+  function validationMessageFor(field) {
+    const label = field.closest('label')?.querySelector('span')?.textContent || field.placeholder || 'Поле';
+    if (field.validity.valueMissing) return `Заполните поле «${label}»`;
+    if (field.validity.tooShort) return `«${label}»: минимум ${field.minLength} символов`;
+    if (field.validity.patternMismatch) return field.title || `«${label}»: недопустимый формат`;
+    if (field.validity.typeMismatch) return `«${label}»: некорректный формат`;
+    return field.validationMessage || 'Проверьте правильность заполнения поля';
+  }
+
+  /** Single shared error message for the first invalid field — used by forms with one field or one shared error line. */
   function firstValidationError(form) {
     const invalid = form.querySelector(':invalid');
-    if (!invalid) return null;
-    const label = invalid.closest('label')?.querySelector('span')?.textContent || invalid.placeholder || 'Поле';
-    if (invalid.validity.valueMissing) return `Заполните поле «${label}»`;
-    if (invalid.validity.tooShort) return `«${label}»: минимум ${invalid.minLength} символов`;
-    if (invalid.validity.patternMismatch) return invalid.title || `«${label}»: недопустимый формат`;
-    if (invalid.validity.typeMismatch) return `«${label}»: некорректный формат`;
-    return invalid.validationMessage || 'Проверьте правильность заполнения формы';
+    return invalid ? validationMessageFor(invalid) : null;
+  }
+
+  /**
+   * Per-field validation for forms with a <span class="field-error"> under each input
+   * (currently register-form). Shows every invalid field's own message at once, instead of
+   * just the first one, and highlights the invalid inputs. Returns true if the form has any
+   * invalid field (caller should abort submit in that case).
+   */
+  function showAllFieldErrors(form) {
+    let hasError = false;
+    form.querySelectorAll('input, select, textarea').forEach((field) => {
+      const errorEl = document.getElementById(field.id + '-error');
+      if (!errorEl) return;
+      if (!field.checkValidity()) {
+        errorEl.textContent = validationMessageFor(field);
+        field.classList.add('invalid');
+        hasError = true;
+      } else {
+        errorEl.textContent = '';
+        field.classList.remove('invalid');
+      }
+    });
+    return hasError;
   }
 
   el('forgot-password-link').addEventListener('click', () => {
@@ -303,11 +329,26 @@
     }
   });
 
+  // Убирает сообщение и подсветку у конкретного поля регистрации, как только пользователь начал его исправлять,
+  // не дожидаясь повторной отправки формы.
+  ['reg-username', 'reg-displayname', 'reg-email', 'reg-password'].forEach((id) => {
+    el(id).addEventListener('input', () => {
+      const field = el(id);
+      if (field.checkValidity()) {
+        field.classList.remove('invalid');
+        const errorEl = document.getElementById(id + '-error');
+        if (errorEl) errorEl.textContent = '';
+      }
+    });
+  });
+
   el('register-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     el('register-error').textContent = '';
-    const validationError = firstValidationError(e.target);
-    if (validationError) { el('register-error').textContent = validationError; return; }
+    if (showAllFieldErrors(e.target)) {
+      el('register-error').textContent = 'Заполните все обязательные поля';
+      return;
+    }
     const username = el('reg-username').value.trim();
     const displayName = el('reg-displayname').value.trim();
     const email = el('reg-email').value.trim();
