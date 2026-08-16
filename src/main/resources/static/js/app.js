@@ -331,14 +331,26 @@
   });
 
   // Убирает сообщение и подсветку у конкретного поля регистрации, как только пользователь начал его исправлять,
-  // не дожидаясь повторной отправки формы.
+  // не дожидаясь повторной отправки формы. Дополнительно: пока пользователь печатает, maxlength молча
+  // обрезает всё, что не поместилось, и без подсказки человек может не заметить, что логин, например,
+  // получился короче, чем он хотел ввести — поэтому при достижении лимита показываем предупреждение.
   ['reg-username', 'reg-displayname', 'reg-email', 'reg-password'].forEach((id) => {
     el(id).addEventListener('input', () => {
       const field = el(id);
+      const errorEl = document.getElementById(id + '-error');
       if (field.checkValidity()) {
         field.classList.remove('invalid');
-        const errorEl = document.getElementById(id + '-error');
-        if (errorEl) errorEl.textContent = '';
+        if (errorEl) {
+          if (field.maxLength > 0 && field.value.length >= field.maxLength) {
+            errorEl.textContent = `Достигнут максимум — ${field.maxLength} символов, дальше текст не поместится`;
+            errorEl.classList.add('hint');
+          } else {
+            errorEl.textContent = '';
+            errorEl.classList.remove('hint');
+          }
+        }
+      } else if (errorEl) {
+        errorEl.classList.remove('hint');
       }
     });
   });
