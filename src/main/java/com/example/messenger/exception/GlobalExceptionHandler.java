@@ -7,6 +7,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.util.Comparator;
 import java.util.Map;
 
 /**
@@ -21,7 +22,14 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, String>> handleValidation(MethodArgumentNotValidException ex) {
-        FieldError fieldError = ex.getBindingResult().getFieldErrors().stream().findFirst().orElse(null);
+        // A whitespace-only value (e.g. "   ") fails both @NotBlank and @Pattern on the same field
+        // at once — without this ordering, whichever violation Hibernate Validator happens to report
+        // first could win, sometimes surfacing "only letters/digits allowed" for what the user
+        // experiences as an empty field. @NotBlank's message is always the more accurate one, so it
+        // takes priority whenever both fire together.
+        FieldError fieldError = ex.getBindingResult().getFieldErrors().stream()
+                .min(Comparator.comparingInt(fe -> "NotBlank".equals(fe.getCode()) ? 0 : 1))
+                .orElse(null);
         String message = (fieldError != null && fieldError.getDefaultMessage() != null)
                 ? fieldError.getDefaultMessage()
                 : "Некорректные данные запроса";

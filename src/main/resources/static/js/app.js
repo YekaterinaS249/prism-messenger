@@ -201,7 +201,13 @@
    */
   function validationMessageFor(field) {
     const label = field.closest('label')?.querySelector('span')?.textContent || field.placeholder || 'Поле';
-    if (field.validity.valueMissing) return `Заполните поле «${label}»`;
+    // HTML5 "required" only flags valueMissing for a truly empty value — a field full of spaces
+    // passes it and falls through to the pattern-mismatch check instead, showing a confusing
+    // "only letters/digits allowed" message for what the user experiences as an empty field.
+    // Treat whitespace-only the same as empty for any required field.
+    if (field.validity.valueMissing || (field.required && field.value.trim() === '')) {
+      return `Заполните поле «${label}»`;
+    }
     if (field.validity.tooShort) return `«${label}»: минимум ${field.minLength} символов`;
     if (field.validity.tooLong) return `«${label}»: максимум ${field.maxLength} символов`;
     if (field.validity.patternMismatch) return field.title || `«${label}»: недопустимый формат`;
