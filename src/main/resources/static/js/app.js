@@ -209,7 +209,7 @@
       return `Заполните поле «${label}»`;
     }
     if (field.validity.tooShort) return `«${label}»: минимум ${field.minLength} символов`;
-    if (field.validity.tooLong) return `«${label}»: максимум ${field.maxLength} символов`;
+    if (field.validity.tooLong) return `«${label}» не может быть длиннее ${field.maxLength} символов`;
     if (field.validity.patternMismatch) return field.title || `«${label}»: недопустимый формат`;
     if (field.validity.typeMismatch) return `«${label}»: некорректный формат`;
     return field.validationMessage || 'Проверьте правильность заполнения поля';
@@ -336,6 +336,22 @@
     }
   });
 
+  // Живой фильтр отображаемого имени: эмодзи, control-символы и подмену направления письма (RTL-override)
+  // не даём даже напечатать или вставить, а не только отклоняем постфактум при отправке формы.
+  // Разрешены буквы любого языка, цифры, знаки препинания и обычный пробел.
+  const DISPLAYNAME_DISALLOWED = /[^\p{L}\p{M}\p{N}\p{P} ]/gu;
+  el('reg-displayname').addEventListener('input', () => {
+    const field = el('reg-displayname');
+    const filtered = field.value.replace(DISPLAYNAME_DISALLOWED, '');
+    if (filtered === field.value) return;
+    const pos = field.selectionStart;
+    const before = field.value.slice(0, pos);
+    const removedBefore = before.length - before.replace(DISPLAYNAME_DISALLOWED, '').length;
+    field.value = filtered;
+    const newPos = Math.max(0, pos - removedBefore);
+    field.setSelectionRange(newPos, newPos);
+  });
+
   // Убирает сообщение и подсветку у конкретного поля регистрации, как только пользователь начал его исправлять,
   // не дожидаясь повторной отправки формы. Дополнительно: пока пользователь печатает, maxlength молча
   // обрезает всё, что не поместилось, и без подсказки человек может не заметить, что логин, например,
@@ -369,7 +385,7 @@
       return;
     }
     const username = el('reg-username').value.trim();
-    const displayName = el('reg-displayname').value.trim();
+    const displayName = el('reg-displayname').value.trim().replace(/\s+/g, ' ');
     const email = el('reg-email').value.trim();
     const password = el('reg-password').value;
     try {

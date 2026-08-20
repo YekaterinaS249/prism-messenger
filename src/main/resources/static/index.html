@@ -151,7 +151,8 @@
         </label>
         <label class="field">
           <span>Отображаемое имя</span>
-          <input type="text" id="reg-displayname" placeholder="Как вас видят другие" required maxlength="100" aria-describedby="reg-displayname-error">
+          <input type="text" id="reg-displayname" placeholder="Как вас видят другие" required maxlength="100"
+                 pattern="[\p{L}\p{M}\p{N}\p{P} ]+" title="Без эмодзи и спецсимволов — только буквы, цифры, знаки препинания и пробелы" aria-describedby="reg-displayname-error">
           <span class="field-error" id="reg-displayname-error"></span>
         </label>
         <label class="field">

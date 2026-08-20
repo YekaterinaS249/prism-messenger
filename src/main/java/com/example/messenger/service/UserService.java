@@ -65,7 +65,7 @@ public class UserService {
         User user = new User(
                 request.getUsername(),
                 passwordEncoder.encode(normalizePassword(request.getPassword())),
-                request.getDisplayName()
+                normalizeDisplayName(request.getDisplayName())
         );
         user.setEmail(email);
         try {
@@ -76,6 +76,13 @@ public class UserService {
             // resulting low-level SQL error into a friendly message instead of a raw 500.
             throw new IllegalArgumentException("Этот логин или email уже используется");
         }
+    }
+
+    // Trims edge whitespace and collapses any run of internal spaces down to one, so
+    // "  John     Smith  " and "John Smith" end up identical — the @Pattern on the DTO already
+    // rejects emoji/control chars/exotic whitespace, this just tidies what's left.
+    private String normalizeDisplayName(String displayName) {
+        return displayName.trim().replaceAll("\\s+", " ");
     }
 
     public List<UserDto> listContacts(String excludeUsername) {
@@ -95,7 +102,7 @@ public class UserService {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
         if (request.getDisplayName() != null && !request.getDisplayName().isBlank()) {
-            user.setDisplayName(request.getDisplayName().trim());
+            user.setDisplayName(normalizeDisplayName(request.getDisplayName()));
         }
         if (request.getStatus() != null) {
             user.setStatus(request.getStatus().trim());

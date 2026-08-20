@@ -24,7 +24,13 @@ public class RegisterRequest {
     private String password;
 
     @NotBlank(message = "Отображаемое имя обязательно")
-    @Size(min = 1, max = 100, message = "Отображаемое имя должно быть не длиннее 100 символов")
+    @Size(min = 1, max = 100, message = "Отображаемое имя не может быть длиннее 100 символов")
+    // Letters/marks/numbers/punctuation/plain space only — deliberately excludes the Unicode
+    // Symbol categories emoji live in, the Format category zero-width/RTL-override spoofing
+    // characters live in, and any whitespace variant other than a literal space (so a name typed
+    // entirely in non-breaking or zero-width spaces can no longer sneak past @NotBlank looking empty).
+    @Pattern(regexp = "^[\\p{L}\\p{M}\\p{N}\\p{P} ]+$",
+            message = "Отображаемое имя не может содержать эмодзи и спецсимволы")
     private String displayName;
 
     public String getUsername() { return username; }

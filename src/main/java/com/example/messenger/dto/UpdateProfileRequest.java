@@ -1,11 +1,14 @@
 package com.example.messenger.dto;
 
 import javax.validation.constraints.Email;
+import javax.validation.constraints.Pattern;
 import javax.validation.constraints.Size;
 
 public class UpdateProfileRequest {
 
-    @Size(min = 1, max = 100, message = "Отображаемое имя должно быть не длиннее 100 символов")
+    @Size(min = 1, max = 100, message = "Отображаемое имя не может быть длиннее 100 символов")
+    @Pattern(regexp = "^[\\p{L}\\p{M}\\p{N}\\p{P} ]+$",
+            message = "Отображаемое имя не может содержать эмодзи и спецсимволы")
     private String displayName;
 
     @Email(message = "Некорректный email")
